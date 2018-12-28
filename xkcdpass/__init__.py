@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import argparse
+import os
 import random
 import string
 from pathlib import Path
@@ -16,11 +17,16 @@ def main():
                         help='Number of passwords to generate.'
                              ' Default: %(default)s')
     parser.add_argument('-l', '--length', type=int, default=6,
-                        help='Select only words with this or less length.'
+                        help='Select only words less than or equal to length.'
                              ' Default: %(default)s')
     parser.add_argument('-p', '--no-punctuation', action='store_true',
                         help='No punctuation characters. Default: %(default)s')
-    parser.add_argument('--wordspath', default=Path('/usr/share/dict/words'),
+    pathstr = '/usr/share/dict/words'
+    path = Path(pathstr)
+    if not path.exists():
+        if 'EXEPATH' in os.environ:
+            path = Path(os.environ['EXEPATH']) / pathstr[1:]
+    parser.add_argument('--wordspath', default=path,
                         help='Path to words. Default: %(default)s')
     args = parser.parse_args()
 
