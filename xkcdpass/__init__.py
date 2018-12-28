@@ -25,7 +25,7 @@ def main():
     args = parser.parse_args()
 
     if not args.wordspath.exists():
-        parser.error('%s must exist.' % wordspath)
+        parser.error('%s must exist.' % args.wordspath)
 
     if args.no_punctuation:
         def predicate(word):
