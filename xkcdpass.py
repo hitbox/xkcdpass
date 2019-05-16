@@ -19,6 +19,8 @@ def has_punctuation(word):
 
 class XKCDPass:
 
+    sep = ' '
+
     def __init__(self,
                 nwords = 4,
                 pretransforms = None,
@@ -59,7 +61,7 @@ class XKCDPass:
             self.words = [word for word in self.words if self._prefilters(word)]
 
     def password(self):
-        password = ' '.join(secrets.choice(self.words) for i in range(self.nwords))
+        password = self.sep.join(secrets.choice(self.words) for i in range(self.nwords))
         return password
 
 def main(argv=None):
