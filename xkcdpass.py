@@ -1,78 +1,37 @@
 import argparse
-import functools
 import random
 import secrets
 import string
 
-def between(a, b):
-    def _(word):
-        return a <= len(word) <= b
-    return _
-
-def doesnot(f):
-    functools.wraps(f)
-    def wrapper(word):
-        return not f(word)
-    return wrapper
-
-def has_punctuation(word):
-    return set(string.punctuation).intersection(word)
-
-class XKCDPass:
-
-    sep = ' '
-
-    def __init__(self,
-                nwords = 4,
-                pretransforms = None,
-                prefilters = None,
-                dictfile = '/usr/share/dict/words',
-            ):
-        """
-        :param nwords: number of words in a password
-        :param pretransforms: sequence of callables cummulatively called on
-                              each word when loaded.
-        :param prefilters: sequence of callables, any of which throws out a
-                           word after pretransforms.
-        :param dictfile: path to dictionary file.
-        """
-        self.nwords = nwords
-        if pretransforms is None:
-            pretransforms = [str.strip, str.lower]
-        self.pretransforms = pretransforms
-        if prefilters is None:
-            prefilters = [between(4, 6), doesnot(has_punctuation)]
-        self.prefilters = prefilters
-        self.words = None
-        self.dictfile = dictfile
-        self.load_words()
-
-    def _pretransforms(self, word):
-        s = word
-        for func in self.pretransforms:
-            s = func(s)
-        return s
-
-    def _prefilters(self, word):
-        return all(func(word) for func in self.prefilters)
-
-    def load_words(self):
-        with open(self.dictfile) as f:
-            self.words = (self._pretransforms(word) for word in f)
-            self.words = [word for word in self.words if self._prefilters(word)]
-
-    def password(self):
-        password = self.sep.join(secrets.choice(self.words) for i in range(self.nwords))
-        return password
-
-wordwrappers = {
+WRAPPERS = {
     '(': ')',
     '[': ']',
     '{': '}',
     '<': '>',
     '"': '"',
 }
-wordwrappers.update([(v, k) for k, v in wordwrappers.items()])
+WRAPPERS.update({v:k for k, v in WRAPPERS.items()})
+
+class add_number:
+
+    def __call__(self, word):
+        return f'{word}{random.randrange(10)}'
+
+
+class add_special:
+
+    def __init__(self, wrap=False):
+        self.wrap = wrap
+
+    def __call__(self, word):
+        char = secrets.choice(string.punctuation)
+        if self.wrap and char in WRAPPERS:
+            opp = WRAPPERS[char]
+            left, right = sorted([char, opp])
+            return f'{left}{word}{right}'
+        else:
+            return f'{word}{char}'
+
 
 def main(argv=None):
     """
@@ -81,8 +40,16 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=main.__doc__, prog='xkcdpass')
     parser.add_argument('-n', '--num', type=int, default=10,
                         help='Number of passwords to generate. Default: %(default)s')
+    parser.add_argument('--nwords', type=int, default=4,
+                        help='Number of words in a password. Default: %(default)s')
+    parser.add_argument('--minimum', type=int, default=4,
+                        help='Minimum number of letters per word. Default: %(default)s')
+    parser.add_argument('--maximum', type=int, default=6,
+                        help='Maximum number of letters per word. Default: %(default)s')
+    parser.add_argument('--separator', default=' ',
+                        help='Word separator. Default: %(default)s')
     parser.add_argument('-N', '--number', action='store_true',
-                        help='Randomly change a letter to a number.')
+                        help='Randomly add a number.')
     parser.add_argument('-S', '--special', action='store_true',
                         help='Randomly insert a special character.')
     parser.add_argument('-W', '--wrap', action='store_true',
@@ -90,42 +57,38 @@ def main(argv=None):
                              ' wrapper, wrap the randomly selected word with'
                              ' it. Requires --special.')
     args = parser.parse_args(argv)
-
     if args.wrap and not args.special:
-        parser.error('option --wrap requires --special')
+        parser.error('option --wrap requires -S/--special')
 
-    xkcdpass = XKCDPass()
+    modifiers = []
+    if args.number:
+        modifiers.append(add_number())
+    if args.special:
+        modifiers.append(add_special(wrap=args.wrap))
 
-    passwords = []
+    has_punctuation = set(string.punctuation).intersection
+    def predicate(word):
+        return (args.minimum <= len(word) <= args.maximum
+                and not has_punctuation(word))
+
+    def post(word):
+        return word.strip().lower()
+
+    with open('/usr/share/dict/words') as dictfile:
+        population = set(map(post, filter(predicate, dictfile)))
+
+    def indexed_modifiers(words):
+        indexes = random.sample(range(len(words)), len(modifiers))
+        return zip(indexes, modifiers)
+
+    def apply_modifiers(words):
+        for index, modify in indexed_modifiers(words):
+            words[index] = modify(words[index])
+
     for _ in range(args.num):
-        password = xkcdpass.password()
-
-        # TODO: put this up in the XKCDPass class
-        index = None
-        if args.number:
-            words = password.split()
-            index = random.randrange(len(words))
-            words[index] += str(random.randrange(10))
-            password = xkcdpass.sep.join(words)
-
-        if args.special:
-            words = password.split()
-            if index is not None:
-                while True:
-                    newindex = random.randrange(len(words))
-                    if newindex != index:
-                        break
-            char = secrets.choice(string.punctuation)
-            if char in wordwrappers:
-                opp = wordwrappers[char]
-                l, r = sorted([char, opp])
-                words[newindex] = l + words[newindex] + r
-            else:
-                words[newindex] += char
-            password = xkcdpass.sep.join(words)
-
-        passwords.append(password)
-    print('\n'.join(passwords))
+        words = random.sample(population, args.nwords)
+        apply_modifiers(words)
+        print(args.separator.join(words))
 
 if __name__ == '__main__':
     main()
