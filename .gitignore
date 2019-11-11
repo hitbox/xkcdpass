@@ -2,3 +2,5 @@ __pycache__
 venv
 instance
 *.egg-info
+.bash*
+.kitty*

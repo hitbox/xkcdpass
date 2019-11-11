@@ -1,37 +1,10 @@
+#!/usr/bin/env python
 import argparse
 import random
-import secrets
 import string
 
-WRAPPERS = {
-    '(': ')',
-    '[': ']',
-    '{': '}',
-    '<': '>',
-    '"': '"',
-}
+WRAPPERS = dict(('()', '[]', '{}', '""', '//'))
 WRAPPERS.update({v:k for k, v in WRAPPERS.items()})
-
-class add_number:
-
-    def __call__(self, word):
-        return f'{word}{random.randrange(10)}'
-
-
-class add_special:
-
-    def __init__(self, wrap=False):
-        self.wrap = wrap
-
-    def __call__(self, word):
-        char = secrets.choice(string.punctuation)
-        if self.wrap and char in WRAPPERS:
-            opp = WRAPPERS[char]
-            left, right = sorted([char, opp])
-            return f'{left}{word}{right}'
-        else:
-            return f'{word}{char}'
-
 
 def main(argv=None):
     """
@@ -46,8 +19,8 @@ def main(argv=None):
                         help='Minimum number of letters per word. Default: %(default)s')
     parser.add_argument('--maximum', type=int, default=6,
                         help='Maximum number of letters per word. Default: %(default)s')
-    parser.add_argument('--separator', default=' ',
-                        help='Word separator. Default: %(default)s')
+    parser.add_argument('-s', '--separator', default=' ',
+                        help='Word separator. Default: "%(default)s"')
     parser.add_argument('-N', '--number', action='store_true',
                         help='Randomly add a number.')
     parser.add_argument('-S', '--special', action='store_true',
@@ -56,38 +29,35 @@ def main(argv=None):
                         help='When the randomly selected special character is a'
                              ' wrapper, wrap the randomly selected word with'
                              ' it. Requires --special.')
+
     args = parser.parse_args(argv)
     if args.wrap and not args.special:
-        parser.error('option --wrap requires -S/--special')
+        args.special = True
 
-    modifiers = []
-    if args.number:
-        modifiers.append(add_number())
-    if args.special:
-        modifiers.append(add_special(wrap=args.wrap))
-
-    has_punctuation = set(string.punctuation).intersection
-    def predicate(word):
-        return (args.minimum <= len(word) <= args.maximum
-                and not has_punctuation(word))
-
-    def post(word):
-        return word.strip().lower()
-
-    with open('/usr/share/dict/words') as dictfile:
-        population = set(map(post, filter(predicate, dictfile)))
-
-    def indexed_modifiers(words):
-        indexes = random.sample(range(len(words)), len(modifiers))
-        return zip(indexes, modifiers)
-
-    def apply_modifiers(words):
-        for index, modify in indexed_modifiers(words):
-            words[index] = modify(words[index])
+    with open('words_alpha.txt') as wordsfile:
+        population = set(
+            map(lambda word: word.strip(),
+                filter(lambda word: args.minimum <= len(word) <= args.maximum,
+                       wordsfile)))
 
     for _ in range(args.num):
         words = random.sample(population, args.nwords)
-        apply_modifiers(words)
+        indexes = random.sample(range(len(words)), 2)
+        if args.number:
+            words[indexes[0]] += str(random.randint(0, 9))
+        if args.special:
+            word = words[indexes[1]]
+            if args.wrap:
+                lchar = random.choice(list(WRAPPERS))
+                rchar = WRAPPERS[lchar]
+                lchar, rchar = sorted((lchar, rchar))
+                words[indexes[1]] = lchar + word + rchar
+            else:
+                char = random.choice(string.punctuation)
+                if random.randint(0,1):
+                    words[indexes[1]] = word + char
+                else:
+                    words[indexes[1]] = char + word
         print(args.separator.join(words))
 
 if __name__ == '__main__':
