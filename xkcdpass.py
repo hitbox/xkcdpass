@@ -29,6 +29,8 @@ def main(argv=None):
                         help='When the randomly selected special character is a'
                              ' wrapper, wrap the randomly selected word with'
                              ' it. Requires --special.')
+    parser.add_argument('-C', '--capitalize', action='store_true',
+                        help='Randomly capitalize one of the words.')
 
     args = parser.parse_args(argv)
     if args.wrap and not args.special:
@@ -42,7 +44,7 @@ def main(argv=None):
 
     for _ in range(args.num):
         words = random.sample(population, args.nwords)
-        indexes = random.sample(range(len(words)), 2)
+        indexes = random.sample(range(len(words)), 3)
         if args.number:
             words[indexes[0]] += str(random.randint(0, 9))
         if args.special:
@@ -58,6 +60,8 @@ def main(argv=None):
                     words[indexes[1]] = word + char
                 else:
                     words[indexes[1]] = char + word
+        if args.capitalize:
+            words[indexes[2]] = words[indexes[2]].capitalize()
         print(args.separator.join(words))
 
 if __name__ == '__main__':
