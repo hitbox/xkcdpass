@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import argparse
+import os
 import random
 import string
 
@@ -36,7 +37,7 @@ def main(argv=None):
     if args.wrap and not args.special:
         args.special = True
 
-    with open('words_alpha.txt') as wordsfile:
+    with open(os.path.join(os.path.dirname(__file__), 'words_alpha.txt')) as wordsfile:
         population = set(
             map(lambda word: word.strip(),
                 filter(lambda word: args.minimum <= len(word) <= args.maximum,
