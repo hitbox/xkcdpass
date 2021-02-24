@@ -38,7 +38,7 @@ def main(argv=None):
         args.special = True
 
     with open(os.path.join(os.path.dirname(__file__), 'words_alpha.txt')) as wordsfile:
-        population = set(
+        population = list(
             map(lambda word: word.strip(),
                 filter(lambda word: args.minimum <= len(word) <= args.maximum,
                        wordsfile)))
