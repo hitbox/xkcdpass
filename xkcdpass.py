@@ -7,6 +7,12 @@ import string
 WRAPPERS = dict(('()', '[]', '{}', '""', '//'))
 WRAPPERS.update({v:k for k, v in WRAPPERS.items()})
 
+SPECIALS = '!@#$%^&*'
+
+class XKCDPassError(Exception):
+    pass
+
+
 def main(argv=None):
     """
     Generate xkcd passwords.
@@ -16,20 +22,18 @@ def main(argv=None):
                         help='Number of passwords to generate. Default: %(default)s')
     parser.add_argument('--nwords', type=int, default=4,
                         help='Number of words in a password. Default: %(default)s')
-    parser.add_argument('--minimum', type=int, default=4,
+    parser.add_argument('--minletters', type=int, default=4,
                         help='Minimum number of letters per word. Default: %(default)s')
-    parser.add_argument('--maximum', type=int, default=6,
+    parser.add_argument('--maxletters', type=int, default=6,
                         help='Maximum number of letters per word. Default: %(default)s')
     parser.add_argument('-s', '--separator', default=' ',
                         help='Word separator. Default: "%(default)s"')
     parser.add_argument('-N', '--number', action='store_true',
                         help='Randomly add a number.')
     parser.add_argument('-S', '--special', action='store_true',
-                        help='Randomly insert a special character.')
+                        help='Randomly place a special character on a word.')
     parser.add_argument('-W', '--wrap', action='store_true',
-                        help='When the randomly selected special character is a'
-                             ' wrapper, wrap the randomly selected word with'
-                             ' it. Requires --special.')
+                        help='Randomly wrap a word in a wrapper, like brackets.')
     parser.add_argument('-C', '--capitalize', action='store_true',
                         help='Randomly capitalize one of the words.')
 
@@ -37,32 +41,50 @@ def main(argv=None):
     if args.wrap and not args.special:
         args.special = True
 
-    with open(os.path.join(os.path.dirname(__file__), 'words_alpha.txt')) as wordsfile:
-        population = list(
-            map(lambda word: word.strip(),
-                filter(lambda word: args.minimum <= len(word) <= args.maximum,
-                       wordsfile)))
+    def wordsize(word):
+        return args.minletters <= len(word) <= args.maxletters
+
+    words_path = os.path.join(os.path.dirname(__file__), 'words_alpha.txt')
+    with open(words_path) as words_file:
+        population = (line.strip() for line in words_file)
+        population = [word for word in population if wordsize(word)]
+
+    nspecial = sum([args.number, args.special, args.wrap, args.capitalize])
 
     for _ in range(args.num):
         words = random.sample(population, args.nwords)
-        indexes = random.sample(range(len(words)), 3)
+        # choosing indexes to avoid modifying the same word
+        indexes = random.sample(range(len(words)), nspecial)
         if args.number:
-            words[indexes[0]] += str(random.randint(0, 9))
+            # randomly add number to end of number
+            index = indexes.pop()
+            words[index] += str(random.randint(0, 9))
+
         if args.special:
-            word = words[indexes[1]]
-            if args.wrap:
-                lchar = random.choice(list(WRAPPERS))
-                rchar = WRAPPERS[lchar]
-                lchar, rchar = sorted((lchar, rchar))
-                words[indexes[1]] = lchar + word + rchar
+            index = indexes.pop()
+            word = words[index]
+            special = random.choice(SPECIALS)
+            # randomly beginning or end
+            if random.choice([True, False]):
+                words[index] = word + special
             else:
-                char = random.choice(string.punctuation)
-                if random.randint(0,1):
-                    words[indexes[1]] = word + char
-                else:
-                    words[indexes[1]] = char + word
+                words[index] = special + word
+
+        if args.wrap:
+            index = indexes.pop()
+            lchar = random.choice(list(WRAPPERS))
+            rchar = WRAPPERS[lchar]
+            lchar, rchar = sorted((lchar, rchar))
+            word = words[index]
+            words[index] = lchar + word + rchar
+
         if args.capitalize:
-            words[indexes[2]] = words[indexes[2]].capitalize()
+            index = indexes.pop()
+            words[index] = words[index].capitalize()
+
+        if indexes:
+            raise XKCDPassError('Random index(s) left over.')
+
         print(args.separator.join(words))
 
 if __name__ == '__main__':
