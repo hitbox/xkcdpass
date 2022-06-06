@@ -32,6 +32,17 @@ class InfiniteShuffle(UserList):
         return super().pop(i)
 
 
+def capitalize(word):
+    """
+    Capitalize function that capitalizes the first letter character.
+    """
+    for i, c in enumerate(word):
+        if c in string.ascii_letters:
+            break
+    else:
+        raise XKCDPassError('Letter not found')
+    return word[:i] + word[i:].capitalize()
+
 def main(argv=None):
     """
     Generate xkcd passwords.
@@ -98,7 +109,7 @@ def main(argv=None):
 
         if args.capitalize:
             index = word_indexes.pop()
-            words[index] = words[index].capitalize()
+            words[index] = capitalize(words[index])
 
         print(args.separator.join(words))
 
