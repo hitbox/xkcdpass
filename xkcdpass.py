@@ -4,6 +4,8 @@ import os
 import random
 import string
 
+from collections import UserList
+
 WRAPPERS = dict(('()', '[]', '{}', '""', '//'))
 WRAPPERS.update({v:k for k, v in WRAPPERS.items()})
 
@@ -11,6 +13,23 @@ SPECIALS = '!@#$%^&*'
 
 class XKCDPassError(Exception):
     pass
+
+
+class InfiniteShuffle(UserList):
+    """
+    An infinite shuffle list.
+    """
+
+    def __init__(self, initlist):
+        super().__init__(initlist)
+        self.initlist = list(self)
+        random.shuffle(self)
+
+    def pop(self, i=-1):
+        if not self:
+            self.extend(self.initlist)
+            random.shuffle(self)
+        return super().pop(i)
 
 
 def main(argv=None):
@@ -49,19 +68,18 @@ def main(argv=None):
         population = (line.strip() for line in words_file)
         population = [word for word in population if wordsize(word)]
 
-    nspecial = sum([args.number, args.special, args.wrap, args.capitalize])
-
     for _ in range(args.num):
         words = random.sample(population, args.nwords)
         # choosing indexes to avoid modifying the same word
-        indexes = random.sample(range(len(words)), nspecial)
+        word_indexes = InfiniteShuffle(range(len(words)))
+
         if args.number:
             # randomly add number to end of number
-            index = indexes.pop()
+            index = word_indexes.pop()
             words[index] += str(random.randint(0, 9))
 
         if args.special:
-            index = indexes.pop()
+            index = word_indexes.pop()
             word = words[index]
             special = random.choice(SPECIALS)
             # randomly beginning or end
@@ -71,7 +89,7 @@ def main(argv=None):
                 words[index] = special + word
 
         if args.wrap:
-            index = indexes.pop()
+            index = word_indexes.pop()
             lchar = random.choice(list(WRAPPERS))
             rchar = WRAPPERS[lchar]
             lchar, rchar = sorted((lchar, rchar))
@@ -79,11 +97,8 @@ def main(argv=None):
             words[index] = lchar + word + rchar
 
         if args.capitalize:
-            index = indexes.pop()
+            index = word_indexes.pop()
             words[index] = words[index].capitalize()
-
-        if indexes:
-            raise XKCDPassError('Random index(s) left over.')
 
         print(args.separator.join(words))
 
