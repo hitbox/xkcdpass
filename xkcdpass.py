@@ -6,9 +6,7 @@ import string
 
 from collections import UserList
 
-WRAPPERS = dict(('()', '[]', '{}', '""', '//'))
-WRAPPERS.update({v:k for k, v in WRAPPERS.items()})
-
+WRAPCHARS = ('()', '[]', '{}', '<>', '""', "''", '//')
 SPECIALS = '!@#$%^&*'
 
 class XKCDPassError(Exception):
@@ -23,13 +21,18 @@ class InfiniteShuffle(UserList):
     def __init__(self, initlist):
         super().__init__(initlist)
         self.initlist = list(self)
+
+    def _reset(self):
+        self.extend(self.initlist)
         random.shuffle(self)
 
     def pop(self, i=-1):
         if not self:
-            self.extend(self.initlist)
-            random.shuffle(self)
+            self._reset()
         return super().pop(i)
+
+    def peek(self, i=-1):
+        return self[i]
 
 
 def capitalize(word):
@@ -43,75 +46,145 @@ def capitalize(word):
         raise XKCDPassError('Letter not found')
     return word[:i] + word[i:].capitalize()
 
+def parse_args(argv=None):
+    """
+    Parse command line arguments.
+    """
+    parser = argparse.ArgumentParser(
+        description = main.__doc__,
+        prog = 'xkcdpass',
+    )
+    # TODO
+    # - the default will fail when running from an installed location like ~/.local/bin
+    parser.add_argument(
+        '--words-file',
+        default = 'words_alpha.txt',
+        type = argparse.FileType(),
+        help = 'Line separated words file.',
+    )
+    parser.add_argument(
+        '-p', '--numpasswords',
+        type = int,
+        default = 10,
+        help = 'Number of passwords to generate. Default: %(default)s',
+    )
+    parser.add_argument(
+        '-n', '--nwords',
+        type = int,
+        default = 4,
+        help = 'Number of words in a password. Default: %(default)s',
+    )
+    parser.add_argument(
+        '--minletters',
+        type = int,
+        default = 4,
+        help = 'Minimum number of letters per word. Default: %(default)s',
+    )
+    parser.add_argument(
+        '--maxletters',
+        type = int,
+        default = 6,
+        help = 'Maximum number of letters per word. Default: %(default)s',
+    )
+    parser.add_argument(
+        '-s', '--separator',
+        default = ' ',
+        help = 'Word separator. Default: "%(default)s"',
+    )
+
+    # flags
+    parser.add_argument(
+        '-C', '--capitalize',
+        action = 'store_true',
+        help = 'Randomly capitalize one of the words.',
+    )
+    parser.add_argument(
+        '-N', '--number',
+        action = 'store_true',
+        help = 'Randomly add a number.',
+    )
+    parser.add_argument(
+        '-S', '--special',
+        action = 'store_true',
+        help = 'Randomly place a special character on a word.',
+    )
+    parser.add_argument(
+        '-W', '--wrap',
+        action = 'store_true',
+        help = 'Randomly wrap a word, with like brackets or quotes.',
+    )
+    args = parser.parse_args(argv)
+    return args
+
+def random_insert(word, char):
+    if random.choice([True, False]):
+        return word + char
+    else:
+        return char + word
+
+def generate_password(
+    population,
+    nwords,
+    separator,
+    number = None,
+    special = None,
+    wrap = None,
+    capitalize = None,
+):
+    words = random.sample(population, nwords)
+    indexes = InfiniteShuffle(range(len(words)))
+
+    if capitalize:
+        # peek to allow used again
+        index = indexes.peek()
+        words[index] = words[index].capitalize()
+
+    if number:
+        # randomly add number to end of number
+        index = indexes.pop()
+        word = words[index]
+        digit = random.choice(string.digits)
+        words[index] = random_insert(word, digit)
+
+    if special:
+        index = indexes.pop()
+        word = words[index]
+        special = random.choice(SPECIALS)
+        words[index] = random_insert(word, special)
+
+    if wrap:
+        index = indexes.pop()
+        lchar, rchar = random.choice(WRAPCHARS)
+        word = words[index]
+        words[index] = lchar + word + rchar
+
+    return separator.join(words)
+
 def main(argv=None):
     """
     Generate xkcd passwords.
     """
-    parser = argparse.ArgumentParser(description=main.__doc__, prog='xkcdpass')
-    parser.add_argument('-n', '--num', type=int, default=10,
-                        help='Number of passwords to generate. Default: %(default)s')
-    parser.add_argument('--nwords', type=int, default=4,
-                        help='Number of words in a password. Default: %(default)s')
-    parser.add_argument('--minletters', type=int, default=4,
-                        help='Minimum number of letters per word. Default: %(default)s')
-    parser.add_argument('--maxletters', type=int, default=6,
-                        help='Maximum number of letters per word. Default: %(default)s')
-    parser.add_argument('-s', '--separator', default=' ',
-                        help='Word separator. Default: "%(default)s"')
-    parser.add_argument('-N', '--number', action='store_true',
-                        help='Randomly add a number.')
-    parser.add_argument('-S', '--special', action='store_true',
-                        help='Randomly place a special character on a word.')
-    parser.add_argument('-W', '--wrap', action='store_true',
-                        help='Randomly wrap a word in a wrapper, like brackets.')
-    parser.add_argument('-C', '--capitalize', action='store_true',
-                        help='Randomly capitalize one of the words.')
-
-    args = parser.parse_args(argv)
-    if args.wrap and not args.special:
-        args.special = True
+    args = parse_args(argv)
 
     def wordsize(word):
         return args.minletters <= len(word) <= args.maxletters
 
-    words_path = os.path.join(os.path.dirname(__file__), 'words_alpha.txt')
-    with open(words_path) as words_file:
-        population = (line.strip() for line in words_file)
-        population = [word for word in population if wordsize(word)]
+    population = (line.strip() for line in args.words_file)
+    population = [word for word in population if wordsize(word)]
 
-    for _ in range(args.num):
-        words = random.sample(population, args.nwords)
-        # choosing indexes to avoid modifying the same word
-        word_indexes = InfiniteShuffle(range(len(words)))
+    genargs = (
+        population,
+        args.nwords,
+        args.separator,
+        args.number,
+        args.special,
+        args.wrap,
+        args.capitalize,
+    )
 
-        if args.number:
-            # randomly add number to end of number
-            index = word_indexes.pop()
-            words[index] += str(random.randint(0, 9))
-
-        if args.special:
-            index = word_indexes.pop()
-            word = words[index]
-            special = random.choice(SPECIALS)
-            # randomly beginning or end
-            if random.choice([True, False]):
-                words[index] = word + special
-            else:
-                words[index] = special + word
-
-        if args.wrap:
-            index = word_indexes.pop()
-            lchar = random.choice(list(WRAPPERS))
-            rchar = WRAPPERS[lchar]
-            lchar, rchar = sorted((lchar, rchar))
-            word = words[index]
-            words[index] = lchar + word + rchar
-
-        if args.capitalize:
-            index = word_indexes.pop()
-            words[index] = capitalize(words[index])
-
-        print(args.separator.join(words))
+    for _ in range(args.numpasswords):
+        password = generate_password(*genargs)
+        print(password)
 
 if __name__ == '__main__':
     main()
