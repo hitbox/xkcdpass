@@ -4,7 +4,10 @@ import os
 import random
 import string
 
+from collections import ChainMap
 from collections import UserList
+from configparser import ConfigParser
+from types import SimpleNamespace
 
 WRAPCHARS = ('()', '[]', '{}', '<>', '""', "''", '//')
 SPECIALS = '!@#$%^&*'
@@ -46,10 +49,7 @@ def capitalize(word):
         raise XKCDPassError('Letter not found')
     return word[:i] + word[i:].capitalize()
 
-def parse_args(argv=None):
-    """
-    Parse command line arguments.
-    """
+def argument_parser():
     parser = argparse.ArgumentParser(
         description = main.__doc__,
         prog = 'xkcdpass',
@@ -58,7 +58,6 @@ def parse_args(argv=None):
     # - the default will fail when running from an installed location like ~/.local/bin
     parser.add_argument(
         '--words-file',
-        default = 'words_alpha.txt',
         type = argparse.FileType(),
         help = 'Line separated words file.',
     )
@@ -113,8 +112,22 @@ def parse_args(argv=None):
         action = 'store_true',
         help = 'Randomly wrap a word, with like brackets or quotes.',
     )
+    return parser
+
+def parse_args(argv=None):
+    """
+    Parse command line arguments.
+    """
+    parser = argument_parser()
     args = parser.parse_args(argv)
-    return args
+    system_config = '/etc/xkcdpass/xkcdpass.ini'
+    user_config = os.path.expanduser('~/.config/xkcdpass/xkcdpass.ini')
+    cp = ConfigParser()
+    cp.read([system_config, user_config])
+    section = cp['xkcdpass']
+    args_dict = {k: v for k, v in vars(args).items() if v is not None}
+    result = SimpleNamespace(**ChainMap(args_dict, dict(section)))
+    return result
 
 def random_insert(word, char):
     if random.choice([True, False]):
@@ -169,7 +182,12 @@ def main(argv=None):
     def wordsize(word):
         return args.minletters <= len(word) <= args.maxletters
 
-    population = (line.strip() for line in args.words_file)
+    if isinstance(args.words_file, str):
+        with open(args.words_file) as words_file:
+            population = [line.strip() for line in words_file.readlines()]
+    else:
+        population = (line.strip() for line in args.words_file)
+
     population = [word for word in population if wordsize(word)]
 
     genargs = (
