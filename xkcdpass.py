@@ -5,7 +5,6 @@ import random
 import string
 
 from collections import ChainMap
-from collections import UserList
 from configparser import ConfigParser
 from types import SimpleNamespace
 
@@ -16,38 +15,75 @@ class XKCDPassError(Exception):
     pass
 
 
-class InfiniteShuffle(UserList):
+def random_insert(word, char):
     """
-    An infinite shuffle list.
+    Randomly insert a character to the beginning or end of a word.
     """
-
-    def __init__(self, initlist):
-        super().__init__(initlist)
-        self.initlist = list(self)
-
-    def _reset(self):
-        self.extend(self.initlist)
-        random.shuffle(self)
-
-    def pop(self, i=-1):
-        if not self:
-            self._reset()
-        return super().pop(i)
-
-    def peek(self, i=-1):
-        return self[i]
-
-
-def capitalize(word):
-    """
-    Capitalize function that capitalizes the first letter character.
-    """
-    for i, c in enumerate(word):
-        if c in string.ascii_letters:
-            break
+    if random.choice([True, False]):
+        return word + char
     else:
-        raise XKCDPassError('Letter not found')
-    return word[:i] + word[i:].capitalize()
+        return char + word
+
+def generate_password(
+    population,
+    nwords,
+    separator,
+    number = None,
+    special = None,
+    wrap = None,
+    capitalize = None,
+):
+    """
+    Generate a password, XKCD-style.
+
+    :param population:
+        List of words to use in random password generation.
+    :param nwords:
+        Number of words in password.
+    :param separator:
+        Words separator.
+    :param number:
+        Randomly insert a number to the beginning or end of a word.
+    :param special:
+        Randomly insert a special character to the beginning or end of a word.
+    :param wrap:
+        Randomly wrap a word with wrapping characters like parenthesis.
+    :capitalize:
+        Randomly capitalize a word.
+    """
+    words = random.sample(population, nwords)
+    # use list of indexes and (usually) pop to avoid applying the special
+    # character applications to the same word
+    indexes = list(range(len(words)))
+    random.shuffle(indexes)
+
+    # apply optional capitalize first, so that we don't have to consider if the
+    # word has uncapitalizable first character
+    if capitalize:
+        # peek to allow using word again
+        index = indexes[-1]
+        words[index] = words[index].capitalize()
+
+    if number:
+        # randomly add number to end of number
+        index = indexes.pop()
+        word = words[index]
+        digit = random.choice(string.digits)
+        words[index] = random_insert(word, digit)
+
+    if special:
+        index = indexes.pop()
+        word = words[index]
+        special = random.choice(SPECIALS)
+        words[index] = random_insert(word, special)
+
+    if wrap:
+        index = indexes.pop()
+        lchar, rchar = random.choice(WRAPCHARS)
+        word = words[index]
+        words[index] = lchar + word + rchar
+
+    return separator.join(words)
 
 def argument_parser():
     parser = argparse.ArgumentParser(
@@ -90,6 +126,11 @@ def argument_parser():
         default = ' ',
         help = 'Word separator. Default: "%(default)s"',
     )
+    parser.add_argument(
+        '--seed',
+        type = int,
+        help = 'Set the random seed from integer.',
+    )
 
     # flags
     parser.add_argument(
@@ -129,55 +170,15 @@ def parse_args(argv=None):
     result = SimpleNamespace(**ChainMap(args_dict, dict(section)))
     return result
 
-def random_insert(word, char):
-    if random.choice([True, False]):
-        return word + char
-    else:
-        return char + word
-
-def generate_password(
-    population,
-    nwords,
-    separator,
-    number = None,
-    special = None,
-    wrap = None,
-    capitalize = None,
-):
-    words = random.sample(population, nwords)
-    indexes = InfiniteShuffle(range(len(words)))
-
-    if capitalize:
-        # peek to allow used again
-        index = indexes.peek()
-        words[index] = words[index].capitalize()
-
-    if number:
-        # randomly add number to end of number
-        index = indexes.pop()
-        word = words[index]
-        digit = random.choice(string.digits)
-        words[index] = random_insert(word, digit)
-
-    if special:
-        index = indexes.pop()
-        word = words[index]
-        special = random.choice(SPECIALS)
-        words[index] = random_insert(word, special)
-
-    if wrap:
-        index = indexes.pop()
-        lchar, rchar = random.choice(WRAPCHARS)
-        word = words[index]
-        words[index] = lchar + word + rchar
-
-    return separator.join(words)
-
 def main(argv=None):
     """
     Generate xkcd passwords.
     """
     args = parse_args(argv)
+
+    # careful not to fail check if zero integer
+    if hasattr(args, 'seed'):
+        random.seed(args.seed)
 
     def wordsize(word):
         return args.minletters <= len(word) <= args.maxletters
