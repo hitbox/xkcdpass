@@ -32,6 +32,7 @@ def generate_password(
     special = None,
     wrap = None,
     capitalize = None,
+    start_with_letter = False,
 ):
     """
     Generate a password, XKCD-style.
@@ -50,6 +51,8 @@ def generate_password(
         Randomly wrap a word with wrapping characters like parenthesis.
     :capitalize:
         Randomly capitalize a word.
+    :start_with_letter:
+        Password will start with a letter.
     """
     words = random.sample(population, nwords)
     # use list of indexes and (usually) pop to avoid applying the special
@@ -69,16 +72,28 @@ def generate_password(
         index = indexes.pop()
         word = words[index]
         digit = random.choice(string.digits)
-        words[index] = random_insert(word, digit)
+        if start_with_letter and index == 0:
+            # always add to end for option
+            words[index] += digit
+        else:
+            words[index] = random_insert(word, digit)
 
     if special:
         index = indexes.pop()
         word = words[index]
         special = random.choice(SPECIALS)
-        words[index] = random_insert(word, special)
+        if start_with_letter and index == 0:
+            # always add to end for option
+            words[index]  = word + special
+        else:
+            words[index] = random_insert(word, special)
 
     if wrap:
         index = indexes.pop()
+        # pop until not first item for option
+        # let empty list raise
+        while start_with_letter and index == 0:
+            index = indexes.pop()
         lchar, rchar = random.choice(WRAPCHARS)
         word = words[index]
         words[index] = lchar + word + rchar
@@ -153,6 +168,11 @@ def argument_parser():
         action = 'store_true',
         help = 'Randomly wrap a word, with like brackets or quotes.',
     )
+    parser.add_argument(
+        '--starts-with-letter',
+        action = 'store_true',
+        help = 'Password must start with a letter.',
+    )
     return parser
 
 def parse_args(argv=None):
@@ -176,7 +196,8 @@ def main(argv=None):
     """
     args = parse_args(argv)
 
-    # careful not to fail check if zero integer
+    # check for attribute instead of truthy to avoid false for --seed 0 where
+    # zero would be falsey
     if hasattr(args, 'seed'):
         random.seed(args.seed)
 
@@ -199,6 +220,7 @@ def main(argv=None):
         args.special,
         args.wrap,
         args.capitalize,
+        args.starts_with_letter,
     )
 
     for _ in range(args.numpasswords):
