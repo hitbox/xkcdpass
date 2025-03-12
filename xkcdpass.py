@@ -9,6 +9,10 @@ from configparser import ConfigParser
 from types import SimpleNamespace
 
 WRAPCHARS = ('()', '[]', '{}', '<>', '""', "''", '//')
+
+# Wrapping characters that don't require shift key.
+EASYWRAPCHARS = ("''", '//', '[]')
+
 SPECIALS = '!@#$%^&*'
 
 class XKCDPassError(Exception):
@@ -33,6 +37,7 @@ def generate_password(
     wrap = None,
     capitalize = None,
     start_with_letter = False,
+    easy_wrap = False,
 ):
     """
     Generate a password, XKCD-style.
@@ -53,6 +58,8 @@ def generate_password(
         Randomly capitalize a word.
     :start_with_letter:
         Password will start with a letter.
+    :easy_wrap:
+        Use wrapping chars that don't require shift.
     """
     words = random.sample(population, nwords)
     # use list of indexes and (usually) pop to avoid applying the special
@@ -94,7 +101,11 @@ def generate_password(
         # let empty list raise
         while start_with_letter and index == 0:
             index = indexes.pop()
-        lchar, rchar = random.choice(WRAPCHARS)
+        if easy_wrap:
+            wrapchars = EASYWRAPCHARS
+        else:
+            wrapchars = WRAPCHARS
+        lchar, rchar = random.choice(wrapchars)
         word = words[index]
         words[index] = lchar + word + rchar
 
@@ -173,6 +184,11 @@ def argument_parser():
         action = 'store_true',
         help = 'Password must start with a letter.',
     )
+    parser.add_argument(
+        '--easy-wrap',
+        action = 'store_true',
+        help = 'Use easier to type wrapping characters.',
+    )
     return parser
 
 def parse_args(argv=None):
@@ -221,6 +237,7 @@ def main(argv=None):
         args.wrap,
         args.capitalize,
         args.starts_with_letter,
+        args.easy_wrap,
     )
 
     for _ in range(args.numpasswords):
