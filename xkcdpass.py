@@ -240,9 +240,15 @@ def main(argv=None):
         args.easy_wrap,
     )
 
-    for _ in range(args.numpasswords):
-        password = generate_password(*genargs)
-        print(password)
+    n = 0
+    while n < args.numpasswords:
+        try:
+            password = generate_password(*genargs)
+        except IndexError:
+            pass
+        else:
+            print(password)
+            n += 1
 
 if __name__ == '__main__':
     main()
