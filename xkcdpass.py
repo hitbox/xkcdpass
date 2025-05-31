@@ -15,10 +15,31 @@ try:
 except ImportError:
     zxcvbn = None
 
-# Wrapping characters that don't require shift key.
-EASYWRAPCHARS = ("''", '//', '[]')
+WRAPCHARS = ('()', '[]', '{}', '<>', '""', "''", '//', '``')
 
-SPECIALS = '!@#$%^&*'
+# Wrapping characters that don't require shift key.
+EASYWRAPCHARS = ("''", '//', '[]', '``')
+
+ALL_SPECIALS = '!#$%&*+-@^`~'
+
+SPECIALS = '!#$%&*@^`~'
+
+RIGHT_HAND_SPECIALS = '*()-=_+{}\\|'
+
+RIGHT_HAND_SEPARATORS = ' +-_|'
+
+LEET_MAP = {
+    'a': ['4', '@'],
+    'b': ['8'],
+    'e': ['3'],
+    'g': ['6', '9'],
+    'i': ['1', '!', '|'],
+    'l': ['1', '|'],
+    'o': ['0'],
+    's': ['5', '$'],
+    't': ['7', '+'],
+    'z': ['2'],
+}
 
 class XKCDPassError(Exception):
     pass
