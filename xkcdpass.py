@@ -315,6 +315,14 @@ def parse_args(argv=None):
     result = SimpleNamespace(**ChainMap(args_dict, dict(section)))
     return result
 
+def read_population(filename):
+    if isinstance(filename, str):
+        with open(filename) as words_file:
+            population = (line.strip() for line in words_file.readlines())
+    else:
+        population = (line.strip() for line in filename)
+    return population
+
 def main(argv=None):
     """
     Generate xkcd passwords.
@@ -329,13 +337,7 @@ def main(argv=None):
     def wordsize(word):
         return args.minletters <= len(word) <= args.maxletters
 
-    if isinstance(args.words_file, str):
-        with open(args.words_file) as words_file:
-            population = [line.strip() for line in words_file.readlines()]
-    else:
-        population = (line.strip() for line in args.words_file)
-
-    population = [word for word in population if wordsize(word)]
+    population = [word for word in read_population(args.words_file) if wordsize(word)]
 
     genargs = (
         population,
