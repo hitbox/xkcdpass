@@ -325,6 +325,17 @@ def argument_parser():
         action = 'store_true',
         help = 'Use easier to type wrapping characters.',
     )
+    parser.add_argument(
+        '--score',
+        action = 'store_true',
+        help = 'Show password score. Requires zxcvbn.',
+    )
+    parser.add_argument(
+        '--min-length',
+        type = int,
+        default = 14,
+        help = 'Minimum password length.',
+    )
     return parser
 
 def parse_args(argv=None):
