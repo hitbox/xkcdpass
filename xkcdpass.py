@@ -10,7 +10,10 @@ from collections import ChainMap
 from configparser import ConfigParser
 from types import SimpleNamespace
 
-WRAPCHARS = ('()', '[]', '{}', '<>', '""', "''", '//')
+try:
+    from zxcvbn import zxcvbn
+except ImportError:
+    zxcvbn = None
 
 # Wrapping characters that don't require shift key.
 EASYWRAPCHARS = ("''", '//', '[]')
@@ -353,8 +356,16 @@ def main(argv=None):
         except IndexError:
             pass
         else:
-            print(password)
-            n += 1
+            if len(password) >= args.min_length:
+                if zxcvbn:
+                    result = zxcvbn(password)
+                    if args.score:
+                        print(f'{result["score"]}/4 - {result["password"]}')
+                    else:
+                        print(password)
+                else:
+                    print(password)
+                n += 1
 
 if __name__ == '__main__':
     main()
