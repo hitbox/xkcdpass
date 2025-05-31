@@ -161,7 +161,7 @@ def random_insert(word, char):
 def generate_password(
     population,
     nwords,
-    separator,
+    separators,
     number = None,
     special = None,
     wrap = None,
@@ -176,8 +176,8 @@ def generate_password(
         List of words to use in random password generation.
     :param nwords:
         Number of words in password.
-    :param separator:
-        Words separator.
+    :param separators:
+        Words separators.
     :param number:
         Randomly insert a number to the beginning or end of a word.
     :param special:
@@ -239,7 +239,13 @@ def generate_password(
         word = words[index]
         words[index] = lchar + word + rchar
 
-    return separator.join(words)
+    password = ''
+    for nth, word in enumerate(words, start=1):
+        password += word
+        if nth != len(words):
+            password += random.choice(separators)
+
+    return password
 
 def argument_parser():
     parser = argparse.ArgumentParser(
@@ -278,9 +284,9 @@ def argument_parser():
         help = 'Maximum number of letters per word. Default: %(default)s',
     )
     parser.add_argument(
-        '-s', '--separator',
-        default = ' ',
-        help = 'Word separator. Default: "%(default)s"',
+        '-s', '--separators',
+        default = RIGHT_HAND_SEPARATORS,
+        help = 'Word separator(s). Default: "%(default)s"',
     )
     parser.add_argument(
         '--seed',
@@ -363,7 +369,7 @@ def main(argv=None):
     genargs = (
         population,
         args.nwords,
-        args.separator,
+        args.separators,
         args.number,
         args.special,
         args.wrap,
