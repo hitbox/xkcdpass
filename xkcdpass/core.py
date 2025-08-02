@@ -109,6 +109,9 @@ def generate_password(
     return password
 
 def read_population(filename):
+    """
+    Read words from file.
+    """
     if isinstance(filename, str):
         with open(filename) as words_file:
             population = (line.strip() for line in words_file.readlines())
