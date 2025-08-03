@@ -96,6 +96,11 @@ def argument_parser():
         default = 14,
         help = 'Minimum password length. Default: %(default)s',
     )
+    parser.add_argument(
+        '--ideas',
+        action = 'store_true',
+        help = 'Run with ideas. Experimental.',
+    )
     return parser
 
 def parse_args(argv=None):
