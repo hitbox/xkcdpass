@@ -1,45 +1,22 @@
-from .mutator import capitalize_word
-from .mutator import insert_digit_after_first
-from .mutator import insert_easier_wrapping_after_first
-from .mutator import insert_easy_wrapping
-from .mutator import insert_special_after_first
-from .mutator import insert_wrapping
-from .mutator import wrap_word_after_first
+import random
 
-class PasswordBuilder:
+from string import digits
 
-    def __init__(self, mutators):
-        """
-        """
-        self.mutators = mutators
+def capitalize_random(words):
+    index = random.choice(range(len(words)))
+    words[index] = words[index].capitalize()
 
-    def __call__(self, word_list):
-        for mutator in self.mutators:
-            mutator(word_list)
+def random_append_digit(words):
+    index = random.choice(range(len(words)))
+    digit = random.choice(digits)
+    words[index] = words[index] + digit
 
-
-class XKCDPassword(PasswordBuilder):
-    """
-    """
-
-    def __init__(self, mutators=None):
-        """
-        """
-        if mutators is None:
-            mutators = (
-            )
-        self.mutators = tuple(mutators)
-
-    def __call__(self, word_list):
-        """
-        """
-
-xkcd_password_builder = PasswordBuilder(
-    mutators = (
-        capitalize_word,
-        wrap_word_after_first,
-        #insert_digit_after_first,
-        #insert_special_after_first,
-        #insert_easier_wrapping_after_first,
-    ),
-)
+def create_password(words, nwords, separators, minimum_length):
+    while True:
+        word_list = random.sample(words, nwords)
+        capitalize_random(word_list)
+        random_append_digit(word_list)
+        separator = random.choice(separators)
+        password = separator.join(word_list)
+        if len(password) >= minimum_length:
+            return password

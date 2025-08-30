@@ -1,72 +1,50 @@
-import random
+from string import ascii_lowercase
 
-from .argument_parser import parse_args
-from .core import generate_password
-from .core import print_all_passwords
-from .core import read_population
-from .password import xkcd_password_builder as password_builder
-
-try:
-    from zxcvbn import zxcvbn
-except ImportError:
-    zxcvbn = None
-
-def ideas(args, population):
-    for _ in range(args.numpasswords):
-        word_list = random.sample(population, args.nwords)
-        password_builder(word_list)
-
-        separator = random.choice('_/')
-        password = separator.join(word_list)
-
-        if zxcvbn:
-            result = zxcvbn(password)
-            output = f'{result["score"]}/4 {password}'
-        else:
-            output = password
-
-        print(output)
+from .argument_parser import argument_parser
+from .character_filter import CharacterFilter
+from .config import config_from_args
+from .external import zxcvbn
+from .password import create_password
+from .words import resolve_words
 
 def main(argv=None):
     """
     Generate xkcd passwords.
     """
-    args = parse_args(argv)
+    parser = argument_parser()
+    args = parser.parse_args(argv)
+    config = config_from_args(args)
 
-    # check for attribute instead of truthy to avoid false for --seed 0 where
-    # zero would be falsey
-    if hasattr(args, 'seed'):
-        random.seed(args.seed)
+    separators = config['separators']
+    npasswords = config['npasswords']
+    nwords = config['nwords']
+    minimum_length = config['minimum_length']
+    min_word_length = config['min_word_length']
+    max_word_length = config['max_word_length']
 
-    def wordsize(word):
-        return args.minletters <= len(word) <= args.maxletters
+    filter_ = CharacterFilter(valid=ascii_lowercase, invalid_if_all='xvi')
+    words = resolve_words(config['words'])
+    words = [
+        word for word in words
+        if min_word_length <= len(word) <= max_word_length
+        and filter_(word)
+    ]
 
-    population = [word for word in read_population(args.words_file) if wordsize(word)]
+    passwords = []
+    for _ in range(npasswords):
+        password = create_password(words, nwords, separators, minimum_length)
 
-    if args.ideas:
-        # TODO
-        # React to chosen wrapper to make programmer-friendly passwords.
-        # - if [] chosen: lower_case["Capitalized"]
-        # - if {} chosen: lower_case={"word": "Capitalized"}
-        # React to math chars:
-        # - if +: one+two=three
-        # - if -: three-two=one
-        # React to others:
-        # - if /: regex/some_random_words/
-        #         word/Capitalized/another_word
-        ideas(args, population)
-    else:
-        print_all_passwords(
-            population = population,
-            numpasswords = args.numpasswords,
-            min_length = args.min_length,
-            show_score = args.score,
-            nwords = args.nwords,
-            separators = args.separators,
-            number = args.number,
-            special = args.special,
-            wrap = args.wrap,
-            capitalize = args.capitalize,
-            starts_with_letter = args.starts_with_letter,
-            easy_wrap = args.easy_wrap,
-        )
+        if zxcvbn:
+            result = zxcvbn(password)
+            output = (password, result['score'])
+        else:
+            output = (password, None)
+
+        passwords.append(output)
+
+    passwords = sorted(passwords, key=lambda item: (len(item[0]), item[1]))
+    for password, score in passwords:
+        if score is not None:
+            print(f'{score}/4 {password}')
+        else:
+            print(password)
